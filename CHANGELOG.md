@@ -2,6 +2,19 @@
 
 All notable changes to the GenAI Document Assistant project.
 
+## [1.0.1] - 2025-12-28
+
+### Bug Fixes
+
+#### CSV/Excel Metadata Queries (Fixed)
+- **Issue**: CSV/Excel files didn't include metadata in embedded text, so AI couldn't answer questions about row counts, column counts, or file structure
+- **Fix**:
+  - Added metadata summary at beginning of extracted text for CSV files
+  - Added metadata summary at beginning of extracted text for Excel files
+  - Metadata includes: total rows, total columns, column names, sheet details (for Excel)
+  - Enables AI to answer questions like "how many rows are in this file?"
+  - Supports data analysis queries with full context
+
 ## [1.0.0] - 2025-12-28
 
 ### Initial Release

@@ -75,10 +75,20 @@ class DocumentProcessor:
         try:
             df = pd.read_csv(file_path)
             original_rows = len(df)
+            original_columns = len(df.columns)
 
             # Limit rows to prevent token overflow (max 1000 rows)
             if len(df) > 1000:
                 df = df.head(1000)
+
+            # Create metadata summary at the beginning
+            metadata_summary = f"""=== CSV FILE METADATA ===
+Total Rows: {original_rows}
+Total Columns: {original_columns}
+Column Names: {', '.join(df.columns.astype(str))}
+Data Preview (first {len(df)} rows shown):
+
+"""
 
             # Convert dataframe to text representation, truncating long values
             text_parts = []
@@ -88,10 +98,13 @@ class DocumentProcessor:
                 col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
                 text_parts.append(f"Column: {col}\n{col_str.to_string(max_rows=100)}")
 
-            text = "\n\n".join(text_parts)
+            data_text = "\n\n".join(text_parts)
 
             if original_rows > 1000:
-                text += f"\n\n[Showing first 1000 of {original_rows} rows]"
+                data_text += f"\n\n[Showing first 1000 of {original_rows} rows]"
+
+            # Combine metadata summary with data
+            text = metadata_summary + data_text
 
             # Check total size
             if len(text) > 100000:
@@ -103,7 +116,7 @@ class DocumentProcessor:
             return {
                 "text": text,
                 "pages": {0: text},
-                "metadata": {"num_rows": len(df), "num_columns": len(df.columns)}
+                "metadata": {"num_rows": original_rows, "num_columns": original_columns}
             }
 
         except Exception as e:
@@ -119,15 +132,24 @@ class DocumentProcessor:
             sheet_map = {}
             text_parts = []
 
+            # Collect sheet metadata
+            sheet_metadata = []
+            total_rows = 0
+
             for sheet_name in excel_file.sheet_names:
                 df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                original_rows = len(df)
+                total_rows += original_rows
+                sheet_metadata.append(f"  - {sheet_name}: {original_rows} rows, {len(df.columns)} columns")
 
                 # Limit rows to prevent token overflow (max 1000 rows per sheet)
                 if len(df) > 1000:
                     df = df.head(1000)
-                    sheet_text = f"Sheet: {sheet_name} (showing first 1000 of {len(df)} rows)\n"
+                    sheet_text = f"Sheet: {sheet_name} (showing first 1000 of {original_rows} rows)\n"
                 else:
                     sheet_text = f"Sheet: {sheet_name}\n"
+
+                sheet_text += f"Columns: {', '.join(df.columns.astype(str))}\n\n"
 
                 # Convert columns to text, but truncate very long values
                 col_texts = []
@@ -141,7 +163,19 @@ class DocumentProcessor:
                 text_parts.append(sheet_text)
                 sheet_map[sheet_name] = sheet_text
 
-            full_text = "\n\n".join(text_parts)
+            # Create metadata summary at the beginning
+            metadata_summary = f"""=== EXCEL FILE METADATA ===
+Total Sheets: {len(excel_file.sheet_names)}
+Total Rows (all sheets): {total_rows}
+Sheet Details:
+{chr(10).join(sheet_metadata)}
+
+Data Preview:
+
+"""
+
+            data_text = "\n\n".join(text_parts)
+            full_text = metadata_summary + data_text
 
             # Check if text is too large (rough estimate: >100K chars might be too much)
             if len(full_text) > 100000:
@@ -153,7 +187,7 @@ class DocumentProcessor:
             return {
                 "text": full_text,
                 "pages": sheet_map,
-                "metadata": {"num_sheets": len(excel_file.sheet_names)}
+                "metadata": {"num_sheets": len(excel_file.sheet_names), "total_rows": total_rows}
             }
 
         except Exception as e:
