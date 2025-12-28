@@ -1,20 +1,45 @@
 # GenAI Document Assistant
 
+[![License: MIT](https://img.shields.io/badge/License-Educational-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-green.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30.0-red.svg)](https://streamlit.io/)
+
 A Generative AI-powered document Q&A system using Retrieval-Augmented Generation (RAG) with agent-based reasoning.
+
+**Capstone Project** | **College of Professional Studies**
 
 ## Overview
 
 This application allows users to upload enterprise documents (PDF, TXT, CSV, Excel, Word) and ask natural-language questions. The system uses document chunking, embeddings, vector search, and an agent pipeline to provide grounded answers with citations.
 
+### Live Demo
+
+- **API Server:** http://localhost:8000
+- **Web Interface:** http://localhost:8501
+- **API Documentation:** http://localhost:8000/docs
+
+### GitHub Repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/genai-document-assistant.git
+cd genai-document-assistant
+```
+
+Replace `YOUR_USERNAME` with your GitHub username after pushing to GitHub.
+
 ## Features
 
 - **Multi-format Document Support**: PDF, TXT, CSV, XLSX, DOCX
+- **Document Management**: Upload, view, delete individual documents, or clear all
 - **Semantic Search**: Vector-based similarity search using ChromaDB
 - **Agent Pipeline**: Planner → Retriever → Reasoner → Validator → Responder
 - **Guardrails**: Prompt injection detection, hallucination prevention, input validation
+- **Smart Citations**: Document-grouped sources with relevance scores
 - **REST API**: FastAPI backend with OpenAPI documentation
-- **Web UI**: Streamlit interface for easy interaction
+- **Single-Page UI**: Streamlit interface with upload and Q&A side-by-side
 - **Docker Support**: Containerized deployment with docker-compose
+- **Version Control**: Git-ready with comprehensive documentation
 
 ## Project Structure
 
@@ -59,9 +84,11 @@ genai-capstone-doc-assist-proj/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd genai-capstone-doc-assist-proj
+   git clone https://github.com/YOUR_USERNAME/genai-document-assistant.git
+   cd genai-document-assistant
    ```
+
+   Replace `YOUR_USERNAME` with your GitHub username.
 
 2. **Create virtual environment**
    ```bash
@@ -125,11 +152,19 @@ genai-capstone-doc-assist-proj/
 ### Using the Web UI
 
 1. Open http://localhost:8501
-2. Go to "Upload Documents" tab
-3. Upload a PDF, TXT, CSV, XLSX, or DOCX file
-4. Go to "Ask Questions" tab
-5. Type your question and click "Ask"
-6. View the answer with citations and confidence score
+2. **Left Panel - Document Management:**
+   - Upload a PDF, TXT, CSV, XLSX, or DOCX file
+   - View all uploaded documents
+   - Delete individual documents or clear all
+3. **Right Panel - Ask Questions:**
+   - Type your question about the uploaded documents
+   - Click "Ask Question"
+   - View the answer with citations, confidence score, and sources
+4. **Sidebar - Settings:**
+   - Adjust number of sources (top_k)
+   - Select answer style (concise, detailed, bullet)
+   - Check API health
+   - Clear all documents
 
 ### Using the API
 
@@ -148,6 +183,21 @@ curl -X POST "http://localhost:8000/api/v1/ask-question" \
     "top_k": 5,
     "answer_style": "concise"
   }'
+```
+
+**List all documents:**
+```bash
+curl http://localhost:8000/api/v1/list-documents
+```
+
+**Delete a document:**
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/delete-document/{doc_id}"
+```
+
+**Clear all documents:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/clear-all-documents"
 ```
 
 **Health check:**
@@ -202,18 +252,79 @@ See [docs/ARCH.md](docs/ARCH.md) for detailed architecture.
 
 ## Documentation
 
-- [Architecture](docs/ARCH.md) - System design and data flow
-- [API Reference](docs/API.md) - API endpoints and schemas
-- [Agent Pipeline](docs/AGENTS.md) - Agent roles and sequencing
-- [Security](docs/SECURITY.md) - Guardrails and safety measures
-- [Testing](docs/TEST_PLAN.md) - Test strategy and coverage
-- [Deployment](docs/DEPLOYMENT.md) - Docker deployment guide
-- [Limitations](docs/LIMITATIONS.md) - Known limitations and assumptions
+- **Quick Start Guides:**
+  - [QUICKSTART.md](QUICKSTART.md) - 5-minute setup guide
+  - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Local, Docker, and GitHub deployment
+  - [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) - Environment variables reference
+
+- **Technical Documentation:**
+  - [Architecture](docs/ARCH.md) - System design and data flow
+  - [API Reference](docs/API.md) - API endpoints and schemas
+  - [Agent Pipeline](docs/AGENTS.md) - Agent roles and sequencing
+  - [Security](docs/SECURITY.md) - Guardrails and safety measures
+  - [Testing](docs/TEST_PLAN.md) - Test strategy and coverage
+  - [Deployment](docs/DEPLOYMENT.md) - Docker deployment guide
+  - [Limitations](docs/LIMITATIONS.md) - Known limitations and assumptions
+
+- **Project Information:**
+  - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Complete project overview
+  - [ENV_VALIDATION_REPORT.md](ENV_VALIDATION_REPORT.md) - Configuration validation
+
+## GitHub Repository Setup
+
+This project is ready for GitHub! Follow these steps:
+
+1. **Create a GitHub repository:**
+   - Go to https://github.com/new
+   - Repository name: `genai-document-assistant`
+   - Description: `GenAI Document Assistant - RAG-based Q&A System (Capstone Project)`
+   - Choose Public or Private
+   - **Do NOT** initialize with README (we already have one)
+
+2. **Push your code:**
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/genai-document-assistant.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+3. **What's included in the repository:**
+   - ✅ All source code (51 files, 7,600+ lines)
+   - ✅ Comprehensive documentation
+   - ✅ Test suite
+   - ✅ Docker configuration
+   - ✅ Setup and run scripts
+
+4. **What's protected (not in Git):**
+   - ❌ `.env` - Your API key (secure)
+   - ❌ `data/` - Vector database
+   - ❌ Virtual environment files
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for complete deployment instructions.
+
+## Project Stats
+
+- **Total Files:** 51 (committed to Git)
+- **Lines of Code:** 7,600+
+- **Python Packages:** 17 dependencies
+- **API Endpoints:** 6 (upload, ask, list, delete, clear, health)
+- **Supported Formats:** 5 (PDF, TXT, CSV, XLSX, DOCX)
+- **Agent Pipeline:** 5 stages
+- **Documentation:** 12 comprehensive guides
 
 ## License
 
 This is a college capstone project. Use for educational purposes.
 
+## Contributors
+
+**Capstone Project Team**
+- College of Professional Studies
+- Course: Advanced Generative AI
+
 ## Support
 
-For issues or questions, please contact the development team.
+For issues or questions:
+- Review documentation in `/docs` folder
+- Check [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for troubleshooting
+- Run `python validate_setup.py` to verify configuration
