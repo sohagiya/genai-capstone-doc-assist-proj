@@ -13,13 +13,33 @@ st.set_page_config(
     layout="wide"
 )
 
-# Hide only the Streamlit deploy button, keep hamburger menu
+# Hide the Streamlit deploy button with comprehensive CSS
 hide_deploy_button = """
 <style>
-/* Hide only the deploy button, not the entire toolbar */
-.stDeployButton {display:none !important;}
-/* Hide the "Deploy" menu item specifically */
-[data-testid="stHeaderActionElements"] button:has([data-testid="stDeployButton"]) {display:none !important;}
+/* Target all possible deploy button selectors */
+.stDeployButton {
+    display: none !important;
+    visibility: hidden !important;
+}
+/* Hide deploy button by aria-label */
+button[aria-label*="Deploy"] {
+    display: none !important;
+}
+/* Hide deploy button by title */
+button[title*="Deploy"] {
+    display: none !important;
+}
+/* Hide any button containing "deploy" text */
+button:has(> div:contains("Deploy")) {
+    display: none !important;
+}
+/* Additional deploy-related selectors */
+[data-testid*="deploy"] {
+    display: none !important;
+}
+[class*="deploy" i] {
+    display: none !important;
+}
 </style>
 """
 st.markdown(hide_deploy_button, unsafe_allow_html=True)
