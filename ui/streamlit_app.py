@@ -13,10 +13,13 @@ st.set_page_config(
     layout="wide"
 )
 
-# Hide only the Streamlit deploy button
+# Hide Streamlit deploy button
 hide_deploy_button = """
 <style>
-.stDeployButton {display:none;}
+.stDeployButton {display:none !important;}
+button[kind="header"] {display:none !important;}
+[data-testid="stToolbar"] {display:none !important;}
+.viewerBadge_container__1QSob {display:none !important;}
 </style>
 """
 st.markdown(hide_deploy_button, unsafe_allow_html=True)
