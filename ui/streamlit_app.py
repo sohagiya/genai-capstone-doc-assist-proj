@@ -10,8 +10,24 @@ API_BASE_URL = "http://localhost:8000/api/v1"
 st.set_page_config(
     page_title="GenAI Document Assistant",
     page_icon="📚",
-    layout="wide"
+    layout="wide",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "GenAI Document Assistant v1.0 - RAG-based Q&A System"
+    }
 )
+
+# Hide Streamlit deploy button and menu
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stDeployButton {display:none;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 
 def upload_document(file) -> Optional[dict]:
