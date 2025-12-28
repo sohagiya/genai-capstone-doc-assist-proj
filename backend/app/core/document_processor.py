@@ -1,0 +1,171 @@
+"""Document text extraction from various file formats"""
+import hashlib
+from pathlib import Path
+from typing import Dict, Optional
+import PyPDF2
+import pandas as pd
+from docx import Document
+from backend.app.utils.logger import logger
+
+
+class DocumentProcessor:
+    """Extract text from various document formats"""
+
+    @staticmethod
+    def compute_hash(file_path: str) -> str:
+        """Compute SHA256 hash of file"""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
+    @staticmethod
+    def extract_from_pdf(file_path: str) -> Dict[str, any]:
+        """Extract text from PDF file"""
+        text_content = []
+        page_map = {}
+
+        try:
+            with open(file_path, "rb") as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                num_pages = len(pdf_reader.pages)
+
+                for page_num in range(num_pages):
+                    page = pdf_reader.pages[page_num]
+                    page_text = page.extract_text()
+                    text_content.append(page_text)
+                    page_map[page_num] = page_text
+
+            full_text = "\n\n".join(text_content)
+            logger.info(f"Extracted text from PDF: {num_pages} pages")
+
+            return {
+                "text": full_text,
+                "pages": page_map,
+                "metadata": {"num_pages": num_pages}
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting PDF: {str(e)}")
+            raise
+
+    @staticmethod
+    def extract_from_txt(file_path: str) -> Dict[str, any]:
+        """Extract text from TXT file"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                text = f.read()
+
+            logger.info(f"Extracted text from TXT file")
+
+            return {
+                "text": text,
+                "pages": {0: text},
+                "metadata": {"num_pages": 1}
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting TXT: {str(e)}")
+            raise
+
+    @staticmethod
+    def extract_from_csv(file_path: str) -> Dict[str, any]:
+        """Extract text from CSV file"""
+        try:
+            df = pd.read_csv(file_path)
+
+            # Convert dataframe to text representation
+            text_parts = [f"Column: {col}\n{df[col].to_string()}" for col in df.columns]
+            text = "\n\n".join(text_parts)
+
+            logger.info(f"Extracted text from CSV: {len(df)} rows, {len(df.columns)} columns")
+
+            return {
+                "text": text,
+                "pages": {0: text},
+                "metadata": {"num_rows": len(df), "num_columns": len(df.columns)}
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting CSV: {str(e)}")
+            raise
+
+    @staticmethod
+    def extract_from_excel(file_path: str) -> Dict[str, any]:
+        """Extract text from Excel file"""
+        try:
+            excel_file = pd.ExcelFile(file_path)
+            sheet_map = {}
+            text_parts = []
+
+            for sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                sheet_text = f"Sheet: {sheet_name}\n"
+                sheet_text += "\n".join([f"Column: {col}\n{df[col].to_string()}" for col in df.columns])
+                text_parts.append(sheet_text)
+                sheet_map[sheet_name] = sheet_text
+
+            full_text = "\n\n".join(text_parts)
+            logger.info(f"Extracted text from Excel: {len(excel_file.sheet_names)} sheets")
+
+            return {
+                "text": full_text,
+                "pages": sheet_map,
+                "metadata": {"num_sheets": len(excel_file.sheet_names)}
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting Excel: {str(e)}")
+            raise
+
+    @staticmethod
+    def extract_from_docx(file_path: str) -> Dict[str, any]:
+        """Extract text from Word DOCX file"""
+        try:
+            doc = Document(file_path)
+            paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
+            text = "\n\n".join(paragraphs)
+
+            logger.info(f"Extracted text from DOCX: {len(paragraphs)} paragraphs")
+
+            return {
+                "text": text,
+                "pages": {0: text},
+                "metadata": {"num_paragraphs": len(paragraphs)}
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting DOCX: {str(e)}")
+            raise
+
+    def process_document(self, file_path: str, filename: str) -> Dict[str, any]:
+        """
+        Process a document and extract text based on file type
+        Returns dict with text, pages/sheets map, and metadata
+        """
+        file_ext = Path(filename).suffix.lower()
+
+        # Compute file hash
+        file_hash = self.compute_hash(file_path)
+
+        # Extract based on file type
+        if file_ext == ".pdf":
+            result = self.extract_from_pdf(file_path)
+        elif file_ext == ".txt":
+            result = self.extract_from_txt(file_path)
+        elif file_ext == ".csv":
+            result = self.extract_from_csv(file_path)
+        elif file_ext in [".xlsx", ".xls"]:
+            result = self.extract_from_excel(file_path)
+        elif file_ext == ".docx":
+            result = self.extract_from_docx(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {file_ext}")
+
+        # Add file hash to metadata
+        result["metadata"]["file_hash"] = file_hash
+        result["metadata"]["filename"] = filename
+        result["metadata"]["file_type"] = file_ext
+
+        return result

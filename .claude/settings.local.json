@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python validate_setup.py:*)",
+      "Bash(findstr:*)",
+      "Bash(python -m uvicorn:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(curl:*)",
+      "Bash(streamlit run:*)",
+      "Bash(python:*)",
+      "Bash(netstat:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(if exist NUL del NUL)"
+    ]
+  }
+}
