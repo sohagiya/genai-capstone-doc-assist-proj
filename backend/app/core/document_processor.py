@@ -74,10 +74,29 @@ class DocumentProcessor:
         """Extract text from CSV file"""
         try:
             df = pd.read_csv(file_path)
+            original_rows = len(df)
 
-            # Convert dataframe to text representation
-            text_parts = [f"Column: {col}\n{df[col].to_string()}" for col in df.columns]
+            # Limit rows to prevent token overflow (max 1000 rows)
+            if len(df) > 1000:
+                df = df.head(1000)
+
+            # Convert dataframe to text representation, truncating long values
+            text_parts = []
+            for col in df.columns:
+                col_str = df[col].astype(str)
+                # Truncate individual cell values to 500 chars
+                col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
+                text_parts.append(f"Column: {col}\n{col_str.to_string(max_rows=100)}")
+
             text = "\n\n".join(text_parts)
+
+            if original_rows > 1000:
+                text += f"\n\n[Showing first 1000 of {original_rows} rows]"
+
+            # Check total size
+            if len(text) > 100000:
+                logger.warning(f"CSV file produced {len(text)} chars, truncating to 100000")
+                text = text[:100000] + "\n\n[Content truncated due to size]"
 
             logger.info(f"Extracted text from CSV: {len(df)} rows, {len(df.columns)} columns")
 
@@ -94,19 +113,41 @@ class DocumentProcessor:
     @staticmethod
     def extract_from_excel(file_path: str) -> Dict[str, any]:
         """Extract text from Excel file"""
+        excel_file = None
         try:
             excel_file = pd.ExcelFile(file_path)
             sheet_map = {}
             text_parts = []
 
             for sheet_name in excel_file.sheet_names:
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
-                sheet_text = f"Sheet: {sheet_name}\n"
-                sheet_text += "\n".join([f"Column: {col}\n{df[col].to_string()}" for col in df.columns])
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+
+                # Limit rows to prevent token overflow (max 1000 rows per sheet)
+                if len(df) > 1000:
+                    df = df.head(1000)
+                    sheet_text = f"Sheet: {sheet_name} (showing first 1000 of {len(df)} rows)\n"
+                else:
+                    sheet_text = f"Sheet: {sheet_name}\n"
+
+                # Convert columns to text, but truncate very long values
+                col_texts = []
+                for col in df.columns:
+                    col_str = df[col].astype(str)
+                    # Truncate individual cell values to 500 chars
+                    col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
+                    col_texts.append(f"Column: {col}\n{col_str.to_string(max_rows=100)}")
+
+                sheet_text += "\n".join(col_texts)
                 text_parts.append(sheet_text)
                 sheet_map[sheet_name] = sheet_text
 
             full_text = "\n\n".join(text_parts)
+
+            # Check if text is too large (rough estimate: >100K chars might be too much)
+            if len(full_text) > 100000:
+                logger.warning(f"Excel file produced {len(full_text)} chars, truncating to 100000")
+                full_text = full_text[:100000] + "\n\n[Content truncated due to size]"
+
             logger.info(f"Extracted text from Excel: {len(excel_file.sheet_names)} sheets")
 
             return {
@@ -118,6 +159,10 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error extracting Excel: {str(e)}")
             raise
+        finally:
+            # Ensure file handle is closed
+            if excel_file is not None:
+                excel_file.close()
 
     @staticmethod
     def extract_from_docx(file_path: str) -> Dict[str, any]:
