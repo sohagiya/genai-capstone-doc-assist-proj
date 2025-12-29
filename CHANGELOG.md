@@ -2,6 +2,64 @@
 
 All notable changes to the GenAI Document Assistant project.
 
+## [1.0.3] - 2025-12-28
+
+### Major Features
+
+#### Chart and Graph Generation 📊
+- **NEW**: Auto-generate charts for CSV/Excel files
+- **Chart Types**: Histogram, Pie Chart, Bar Chart, Correlation Heatmap, Scatter Plot
+- **New API Endpoints**:
+  - `POST /api/v1/generate-charts/{doc_id}` - Generate automatic visualizations
+  - `GET /api/v1/get-data-preview/{doc_id}` - Get tabular data preview with column stats
+- **UI Integration**: "📊 View Charts" and "📋 View Data" buttons in Streamlit UI
+- **Auto-Detection**: Automatically selects appropriate chart types based on column data types
+- **Multiple Charts**: Generate up to 5 charts automatically per dataset
+
+#### Increased Data Limits
+- **Row Limit**: Increased from 1,000 to **50,000 rows** per CSV/Excel file
+- **Better Performance**: Can now handle much larger datasets for analysis
+
+#### File Management
+- **Uploads Directory**: CSV/Excel files saved to `./uploads` for chart generation
+- **Persistent Storage**: Files retained for visualization and data preview
+
+#### New Dependencies
+- **matplotlib==3.8.2**: Chart generation library
+- **plotly==5.18.0**: Interactive visualization framework
+- **kaleido==0.2.1**: Static image export utility
+
+### Technical Implementation
+- Created `backend/app/core/chart_generator.py` with 7 chart generation methods
+- Enhanced file upload to save to `./uploads` directory instead of temp
+- Updated Streamlit UI with expandable chart and data preview sections
+- All charts returned as base64-encoded PNG images
+
+## [1.0.2] - 2025-12-28
+
+### Major Enhancements
+
+#### Data Analysis Support for CSV/Excel Files
+- **Enhancement**: Transformed CSV/Excel extraction to support comprehensive data analysis
+- **New Capabilities**:
+  - **Sample Data Display**: First 20 rows shown in tabular format
+  - **Column Statistics**:
+    - Numeric columns: min, max, mean, median, standard deviation
+    - Categorical columns: unique value counts, top 10 values with frequencies
+  - **Data Type Information**: Shows data type for each column
+  - **Null Value Analysis**: Reports null and non-null counts per column
+  - **Complete Data Values**: Full column-by-column data values for querying
+  - **Metadata Summary**: Total rows, columns, column names, sheet details
+- **Benefits**:
+  - Data analysts can upload CSV/Excel files and perform data analysis
+  - AI can answer analytical queries like:
+    - "What are the top 5 values in column X?"
+    - "What's the average of column Y?"
+    - "Show me the data types for all columns"
+    - "Which columns have null values?"
+  - Enables generation of insights from tabular data
+  - Foundation for future chart/graph generation capabilities
+
 ## [1.0.1] - 2025-12-28
 
 ### Bug Fixes

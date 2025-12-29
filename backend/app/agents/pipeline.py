@@ -124,10 +124,11 @@ class AgentPipeline:
         """
         Reasoner agent: Synthesizes evidence into a draft answer
         """
-        # Build context from retrieved chunks
+        # Build context from retrieved chunks with filenames
         context_parts = []
         for i, chunk in enumerate(chunks):
-            context_parts.append(f"[Source {i+1}] {chunk['text'][:500]}")
+            filename = chunk.get("metadata", {}).get("filename", "Unknown")
+            context_parts.append(f"[Source {i+1}: {filename}] {chunk['text'][:500]}")
 
         context = "\n\n".join(context_parts)
 
@@ -149,7 +150,7 @@ Instructions:
 - Answer ONLY based on the provided context
 - {style_instruction}
 - If the context doesn't contain the answer, say "The provided documents do not contain information about this."
-- Cite which source(s) support each claim using [Source N] notation
+- Cite which source(s) support each claim using [Source N: filename] notation (e.g., [Source 1: report.pdf])
 
 Answer:"""
 
@@ -269,3 +270,4 @@ Answer:"""
             "safety_flags": validation_result.get("safety_flags", []),
             "reasoning": f"Used {len(chunks)} source chunks"
         }
+

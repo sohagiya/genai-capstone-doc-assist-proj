@@ -40,6 +40,23 @@ class TextChunker:
         if not text or not text.strip():
             return []
 
+        # Prepare document metadata header for first chunk
+        metadata_header = ""
+        if metadata:
+            metadata_lines = ["=== DOCUMENT METADATA ==="]
+            if "filename" in metadata:
+                metadata_lines.append(f"Filename: {metadata['filename']}")
+            if "file_type" in metadata:
+                metadata_lines.append(f"File Type: {metadata['file_type']}")
+            if "num_pages" in metadata:
+                metadata_lines.append(f"Total Pages: {metadata['num_pages']}")
+            if "pages_with_text" in metadata:
+                metadata_lines.append(f"Pages with Text: {metadata['pages_with_text']}")
+            if "total_characters" in metadata:
+                metadata_lines.append(f"Total Characters: {metadata['total_characters']}")
+            metadata_lines.append("=== END METADATA ===\n")
+            metadata_header = "\n".join(metadata_lines)
+
         chunks = []
         paragraphs = self.split_by_paragraphs(text)
 
@@ -50,6 +67,11 @@ class TextChunker:
         current_size = 0
         chunk_id = 0
         start_pos = 0
+
+        # Add metadata header to first chunk
+        if metadata_header:
+            current_chunk.append(metadata_header)
+            current_size += len(metadata_header)
 
         for para_idx, paragraph in enumerate(paragraphs):
             para_size = len(paragraph)
@@ -139,6 +161,15 @@ class TextChunker:
 
     def _create_chunk(self, text: str, chunk_id: int, start_pos: int, metadata: Optional[Dict]) -> Dict:
         """Create a chunk dictionary with metadata"""
+        # Prepend metadata context to EVERY chunk for better retrieval
+        metadata_context = ""
+        if metadata and chunk_id == 0:  # Only add detailed metadata to first chunk
+            pass  # Already added via metadata_header
+        elif metadata and "filename" in metadata and "num_pages" in metadata:
+            # Add brief metadata reference to all other chunks
+            metadata_context = f"[Document: {metadata.get('filename', 'Unknown')} | Total Pages: {metadata.get('num_pages', 'Unknown')}]\n\n"
+            text = metadata_context + text
+
         chunk = {
             "chunk_id": chunk_id,
             "text": text,

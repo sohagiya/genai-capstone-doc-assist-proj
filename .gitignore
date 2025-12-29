@@ -23,6 +23,8 @@ dist/
 # Data
 data/
 *.db
+uploads/
+temp_uploads/
 
 # Logs
 *.log

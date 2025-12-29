@@ -22,7 +22,7 @@ class DocumentProcessor:
 
     @staticmethod
     def extract_from_pdf(file_path: str) -> Dict[str, any]:
-        """Extract text from PDF file"""
+        """Extract text from PDF file with enhanced extraction"""
         text_content = []
         page_map = {}
 
@@ -34,16 +34,37 @@ class DocumentProcessor:
                 for page_num in range(num_pages):
                     page = pdf_reader.pages[page_num]
                     page_text = page.extract_text()
-                    text_content.append(page_text)
-                    page_map[page_num] = page_text
 
-            full_text = "\n\n".join(text_content)
-            logger.info(f"Extracted text from PDF: {num_pages} pages")
+                    # Clean up extracted text
+                    if page_text:
+                        page_text = page_text.strip()
+                        # Remove excessive whitespace while preserving structure
+                        lines = [line.strip() for line in page_text.split('\n') if line.strip()]
+                        page_text = '\n'.join(lines)
+
+                    text_content.append(page_text if page_text else "")
+                    page_map[page_num] = page_text if page_text else ""
+
+            full_text = "\n\n".join([text for text in text_content if text])
+
+            # Calculate statistics
+            total_chars = len(full_text)
+            pages_with_text = sum(1 for text in text_content if text)
+
+            logger.info(f"Extracted text from PDF: {num_pages} pages, {pages_with_text} pages with text, {total_chars} characters")
+
+            # If no text extracted, provide helpful message in metadata
+            if total_chars == 0:
+                logger.warning(f"PDF has {num_pages} pages but no extractable text. May be scanned images.")
 
             return {
                 "text": full_text,
                 "pages": page_map,
-                "metadata": {"num_pages": num_pages}
+                "metadata": {
+                    "num_pages": num_pages,
+                    "pages_with_text": pages_with_text,
+                    "total_characters": total_chars
+                }
             }
 
         except Exception as e:
@@ -71,47 +92,93 @@ class DocumentProcessor:
 
     @staticmethod
     def extract_from_csv(file_path: str) -> Dict[str, any]:
-        """Extract text from CSV file"""
+        """Extract text from CSV file with data analysis support"""
         try:
             df = pd.read_csv(file_path)
             original_rows = len(df)
             original_columns = len(df.columns)
 
-            # Limit rows to prevent token overflow (max 1000 rows)
-            if len(df) > 1000:
-                df = df.head(1000)
+            # Limit rows to prevent token overflow (max 50000 rows)
+            if len(df) > 50000:
+                df = df.head(50000)
 
-            # Create metadata summary at the beginning
+            # Build comprehensive data analysis text
+            text_parts = []
+
+            # 1. METADATA SECTION
             metadata_summary = f"""=== CSV FILE METADATA ===
 Total Rows: {original_rows}
 Total Columns: {original_columns}
 Column Names: {', '.join(df.columns.astype(str))}
-Data Preview (first {len(df)} rows shown):
 
 """
+            text_parts.append(metadata_summary)
 
-            # Convert dataframe to text representation, truncating long values
-            text_parts = []
+            # 2. COLUMN DETAILS WITH DATA TYPES AND STATISTICS
+            column_details = "=== COLUMN DETAILS ===\n"
+            for col in df.columns:
+                col_dtype = str(df[col].dtype)
+                non_null = df[col].notna().sum()
+                null_count = df[col].isna().sum()
+
+                column_details += f"\nColumn: {col}\n"
+                column_details += f"  - Data Type: {col_dtype}\n"
+                column_details += f"  - Non-Null Values: {non_null}\n"
+                column_details += f"  - Null Values: {null_count}\n"
+
+                # Numeric column statistics
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    try:
+                        column_details += f"  - Min: {df[col].min()}\n"
+                        column_details += f"  - Max: {df[col].max()}\n"
+                        column_details += f"  - Mean: {df[col].mean():.2f}\n"
+                        column_details += f"  - Median: {df[col].median():.2f}\n"
+                        column_details += f"  - Std Dev: {df[col].std():.2f}\n"
+                    except:
+                        pass
+
+                # Categorical/Object column statistics
+                else:
+                    unique_count = df[col].nunique()
+                    column_details += f"  - Unique Values: {unique_count}\n"
+                    if unique_count <= 20:
+                        top_values = df[col].value_counts().head(10)
+                        column_details += f"  - Top Values: {', '.join([f'{v}({c})' for v, c in top_values.items()])}\n"
+
+            text_parts.append(column_details)
+
+            # 3. SAMPLE DATA ROWS (First 20 rows in tabular format)
+            sample_rows = min(20, len(df))
+            sample_data = f"\n=== SAMPLE DATA (First {sample_rows} rows) ===\n"
+            sample_data += df.head(sample_rows).to_string(index=True, max_colwidth=100)
+            text_parts.append(sample_data)
+
+            # 4. FULL DATA VALUES (Column-by-column for better context)
+            full_data_section = f"\n\n=== COMPLETE DATA VALUES ===\n"
+            full_data_section += f"(Showing first {len(df)} of {original_rows} rows)\n\n"
+
             for col in df.columns:
                 col_str = df[col].astype(str)
                 # Truncate individual cell values to 500 chars
                 col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
-                text_parts.append(f"Column: {col}\n{col_str.to_string(max_rows=100)}")
+                full_data_section += f"Column '{col}':\n"
+                full_data_section += col_str.to_string(max_rows=100, index=True)
+                full_data_section += "\n\n"
 
-            data_text = "\n\n".join(text_parts)
+            text_parts.append(full_data_section)
 
-            if original_rows > 1000:
-                data_text += f"\n\n[Showing first 1000 of {original_rows} rows]"
+            if original_rows > 50000:
+                text_parts.append(f"\n[Note: Showing first 50000 of {original_rows} total rows]")
 
-            # Combine metadata summary with data
-            text = metadata_summary + data_text
+            # Combine all sections
+            text = "\n".join(text_parts)
 
             # Check total size
             if len(text) > 100000:
                 logger.warning(f"CSV file produced {len(text)} chars, truncating to 100000")
                 text = text[:100000] + "\n\n[Content truncated due to size]"
 
-            logger.info(f"Extracted text from CSV: {len(df)} rows, {len(df.columns)} columns")
+            logger.info(f"Extracted CSV with analysis: {len(df)} rows, {len(df.columns)} columns")
 
             return {
                 "text": text,
@@ -125,64 +192,115 @@ Data Preview (first {len(df)} rows shown):
 
     @staticmethod
     def extract_from_excel(file_path: str) -> Dict[str, any]:
-        """Extract text from Excel file"""
+        """Extract text from Excel file with data analysis support"""
         excel_file = None
         try:
             excel_file = pd.ExcelFile(file_path)
             sheet_map = {}
-            text_parts = []
+            all_sheets_text = []
 
             # Collect sheet metadata
             sheet_metadata = []
             total_rows = 0
 
+            # Create metadata summary at the beginning
             for sheet_name in excel_file.sheet_names:
                 df = pd.read_excel(excel_file, sheet_name=sheet_name)
                 original_rows = len(df)
                 total_rows += original_rows
                 sheet_metadata.append(f"  - {sheet_name}: {original_rows} rows, {len(df.columns)} columns")
 
-                # Limit rows to prevent token overflow (max 1000 rows per sheet)
-                if len(df) > 1000:
-                    df = df.head(1000)
-                    sheet_text = f"Sheet: {sheet_name} (showing first 1000 of {original_rows} rows)\n"
-                else:
-                    sheet_text = f"Sheet: {sheet_name}\n"
-
-                sheet_text += f"Columns: {', '.join(df.columns.astype(str))}\n\n"
-
-                # Convert columns to text, but truncate very long values
-                col_texts = []
-                for col in df.columns:
-                    col_str = df[col].astype(str)
-                    # Truncate individual cell values to 500 chars
-                    col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
-                    col_texts.append(f"Column: {col}\n{col_str.to_string(max_rows=100)}")
-
-                sheet_text += "\n".join(col_texts)
-                text_parts.append(sheet_text)
-                sheet_map[sheet_name] = sheet_text
-
-            # Create metadata summary at the beginning
             metadata_summary = f"""=== EXCEL FILE METADATA ===
 Total Sheets: {len(excel_file.sheet_names)}
 Total Rows (all sheets): {total_rows}
 Sheet Details:
 {chr(10).join(sheet_metadata)}
 
-Data Preview:
-
 """
+            all_sheets_text.append(metadata_summary)
 
-            data_text = "\n\n".join(text_parts)
-            full_text = metadata_summary + data_text
+            # Process each sheet with detailed analysis
+            for sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                original_rows = len(df)
 
-            # Check if text is too large (rough estimate: >100K chars might be too much)
+                # Limit rows to prevent token overflow (max 50000 rows per sheet)
+                if len(df) > 50000:
+                    df = df.head(50000)
+
+                sheet_parts = []
+
+                # Sheet header
+                sheet_header = f"\n{'='*60}\nSHEET: {sheet_name}\n{'='*60}\n"
+                if original_rows > 50000:
+                    sheet_header += f"(Showing first 50000 of {original_rows} rows)\n"
+                sheet_parts.append(sheet_header)
+
+                # Column details with statistics
+                column_details = "\n=== COLUMN DETAILS ===\n"
+                for col in df.columns:
+                    col_dtype = str(df[col].dtype)
+                    non_null = df[col].notna().sum()
+                    null_count = df[col].isna().sum()
+
+                    column_details += f"\nColumn: {col}\n"
+                    column_details += f"  - Data Type: {col_dtype}\n"
+                    column_details += f"  - Non-Null Values: {non_null}\n"
+                    column_details += f"  - Null Values: {null_count}\n"
+
+                    # Numeric column statistics
+                    if pd.api.types.is_numeric_dtype(df[col]):
+                        try:
+                            column_details += f"  - Min: {df[col].min()}\n"
+                            column_details += f"  - Max: {df[col].max()}\n"
+                            column_details += f"  - Mean: {df[col].mean():.2f}\n"
+                            column_details += f"  - Median: {df[col].median():.2f}\n"
+                            column_details += f"  - Std Dev: {df[col].std():.2f}\n"
+                        except:
+                            pass
+
+                    # Categorical/Object column statistics
+                    else:
+                        unique_count = df[col].nunique()
+                        column_details += f"  - Unique Values: {unique_count}\n"
+                        if unique_count <= 20:
+                            top_values = df[col].value_counts().head(10)
+                            column_details += f"  - Top Values: {', '.join([f'{v}({c})' for v, c in top_values.items()])}\n"
+
+                sheet_parts.append(column_details)
+
+                # Sample data rows (First 20 rows in tabular format)
+                sample_rows = min(20, len(df))
+                sample_data = f"\n=== SAMPLE DATA (First {sample_rows} rows) ===\n"
+                sample_data += df.head(sample_rows).to_string(index=True, max_colwidth=100)
+                sheet_parts.append(sample_data)
+
+                # Full data values (Column-by-column)
+                full_data_section = f"\n\n=== COMPLETE DATA VALUES ===\n"
+                for col in df.columns:
+                    col_str = df[col].astype(str)
+                    # Truncate individual cell values to 500 chars
+                    col_str = col_str.apply(lambda x: x[:500] if len(x) > 500 else x)
+                    full_data_section += f"Column '{col}':\n"
+                    full_data_section += col_str.to_string(max_rows=100, index=True)
+                    full_data_section += "\n\n"
+
+                sheet_parts.append(full_data_section)
+
+                # Combine all sheet parts
+                sheet_text = "\n".join(sheet_parts)
+                all_sheets_text.append(sheet_text)
+                sheet_map[sheet_name] = sheet_text
+
+            # Combine all sheets
+            full_text = "\n\n".join(all_sheets_text)
+
+            # Check if text is too large
             if len(full_text) > 100000:
                 logger.warning(f"Excel file produced {len(full_text)} chars, truncating to 100000")
                 full_text = full_text[:100000] + "\n\n[Content truncated due to size]"
 
-            logger.info(f"Extracted text from Excel: {len(excel_file.sheet_names)} sheets")
+            logger.info(f"Extracted Excel with analysis: {len(excel_file.sheet_names)} sheets, {total_rows} total rows")
 
             return {
                 "text": full_text,
@@ -248,3 +366,4 @@ Data Preview:
         result["metadata"]["file_type"] = file_ext
 
         return result
+ 

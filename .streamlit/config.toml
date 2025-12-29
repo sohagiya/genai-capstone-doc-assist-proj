@@ -12,3 +12,14 @@ gatherUsageStats = false
 [ui]
 hideTopBar = false
 hideSidebarNav = false
+
+[client]
+toolbarMode = "viewer"
+showErrorDetails = true
+
+[theme]
+primaryColor = "#0066cc"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f7f7f8"
+textColor = "#2e2e2e"
+font = "sans serif"

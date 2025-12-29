@@ -21,7 +21,7 @@ COPY backend/ backend/
 COPY ui/ ui/
 
 # Create necessary directories
-RUN mkdir -p /app/data/chroma /app/temp_uploads
+RUN mkdir -p /app/data/chroma /app/uploads
 
 # Expose ports
 EXPOSE 8000 8501

@@ -45,18 +45,18 @@ async def upload_document(file: UploadFile = File(...)):
                 detail=f"File type not allowed. Allowed types: {settings.allowed_extensions}"
             )
 
-        # Save uploaded file temporarily
-        temp_dir = Path("./temp_uploads")
-        temp_dir.mkdir(exist_ok=True)
-        temp_file_path = temp_dir / f"{uuid.uuid4()}_{file.filename}"
+        # Save uploaded file to uploads directory (for data preview)
+        uploads_dir = Path("./uploads")
+        uploads_dir.mkdir(exist_ok=True)
+        saved_file_path = uploads_dir / file.filename
 
-        with open(temp_file_path, "wb") as buffer:
+        with open(saved_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         # Validate file size
-        file_size = os.path.getsize(temp_file_path)
+        file_size = os.path.getsize(saved_file_path)
         if not validate_file_size(file_size, settings.max_upload_bytes):
-            os.remove(temp_file_path)
+            os.remove(saved_file_path)
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"File size exceeds maximum of {settings.max_upload_mb}MB"
@@ -64,9 +64,9 @@ async def upload_document(file: UploadFile = File(...)):
 
         # Process document
         try:
-            processed_doc = document_processor.process_document(str(temp_file_path), file.filename)
+            processed_doc = document_processor.process_document(str(saved_file_path), file.filename)
         except Exception as e:
-            os.remove(temp_file_path)
+            os.remove(saved_file_path)
             logger.error(f"Document processing failed: {str(e)}", extra={"trace_id": trace_id})
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -78,7 +78,7 @@ async def upload_document(file: UploadFile = File(...)):
         existing_doc_id = vector_store.check_document_exists(file_hash)
 
         if existing_doc_id:
-            os.remove(temp_file_path)
+            # Keep the file for data preview even if duplicate
             logger.info(f"Duplicate document detected: {file_hash}", extra={"trace_id": trace_id})
             return UploadDocumentResponse(
                 doc_id=existing_doc_id,
@@ -95,12 +95,20 @@ async def upload_document(file: UploadFile = File(...)):
             metadata=processed_doc["metadata"]
         )
 
+        # Check if any chunks were created
+        if not chunks or len(chunks) == 0:
+            os.remove(saved_file_path)
+            logger.warning(f"No text chunks created from document: {file.filename}", extra={"trace_id": trace_id})
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Could not extract text from document. The file may be empty, scanned images without OCR, password-protected, or corrupted."
+            )
+
         # Generate document ID and add to vector store
         doc_id = str(uuid.uuid4())
         vector_store.add_documents(chunks, doc_id)
 
-        # Cleanup
-        os.remove(temp_file_path)
+        # Keep the file saved for data preview
 
         logger.info(f"Document uploaded successfully: {doc_id}", extra={"trace_id": trace_id})
 
@@ -214,6 +222,94 @@ async def clear_all_documents():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear documents"
+        )
+
+
+@router.get("/get-data-preview/{doc_id}")
+async def get_data_preview(doc_id: str, num_rows: int = 100):
+    """
+    Get a tabular preview of CSV/Excel data
+    """
+    try:
+        import pandas as pd
+        from pathlib import Path
+
+        # Get document metadata
+        documents = vector_store.list_all_documents()
+        doc = next((d for d in documents if d['doc_id'] == doc_id), None)
+
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {doc_id} not found"
+            )
+
+        # Check if it's a CSV or Excel file
+        file_type = doc.get('file_type', '')
+        if file_type not in ['.csv', '.xlsx', '.xls']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Data preview only supported for CSV/Excel files, got {file_type}"
+            )
+
+        # Load the data from uploads directory
+        filename = doc.get('filename', '')
+        file_path = Path(f"./uploads/{filename}")
+
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Source file not found: {filename}"
+            )
+
+        # Read the file
+        if file_type == '.csv':
+            df = pd.read_csv(file_path)
+        else:
+            df = pd.read_excel(file_path)
+
+        # Get preview
+        preview_df = df.head(num_rows)
+
+        # Get column info
+        columns_info = []
+        for col in df.columns:
+            col_info = {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "non_null": int(df[col].notna().sum()),
+                "null": int(df[col].isna().sum())
+            }
+
+            if pd.api.types.is_numeric_dtype(df[col]):
+                col_info["stats"] = {
+                    "min": float(df[col].min()) if not pd.isna(df[col].min()) else None,
+                    "max": float(df[col].max()) if not pd.isna(df[col].max()) else None,
+                    "mean": float(df[col].mean()) if not pd.isna(df[col].mean()) else None,
+                    "median": float(df[col].median()) if not pd.isna(df[col].median()) else None,
+                }
+            else:
+                col_info["unique_values"] = int(df[col].nunique())
+
+            columns_info.append(col_info)
+
+        return {
+            "doc_id": doc_id,
+            "filename": filename,
+            "total_rows": len(df),
+            "total_columns": len(df.columns),
+            "preview_rows": len(preview_df),
+            "columns": columns_info,
+            "data": preview_df.to_dict(orient='records')
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting data preview: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get data preview: {str(e)}"
         )
 
 

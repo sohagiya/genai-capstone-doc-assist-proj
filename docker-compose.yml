@@ -18,7 +18,7 @@ services:
       - LOG_LEVEL=INFO
     volumes:
       - chroma_data:/app/data/chroma
-      - ./temp_uploads:/app/temp_uploads
+      - uploads_data:/app/uploads
     command: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 
   ui:
@@ -34,3 +34,4 @@ services:
 
 volumes:
   chroma_data:
+  uploads_data:
