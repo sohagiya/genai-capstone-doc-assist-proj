@@ -12,7 +12,25 @@
       "Bash(netstat:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(if exist NUL del NUL)"
+      "Bash(if exist NUL del NUL)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(docker --version:*)",
+      "Bash(docker-compose:*)",
+      "Bash(taskkill:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command \"Get-Process | Where-Object {$_Id -in @\\(6612,24424,14840\\)} | Stop-Process -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 13952 -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(pip install:*)",
+      "Bash(rm:*)",
+      "Bash(tesseract:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(git filter-branch:*)"
     ]
   }
 }
